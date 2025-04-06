@@ -12,7 +12,7 @@ export default function TabsLayout() {
     console.log('🔄 Effect TabsLayout - verificando autenticação');
     if (!user) {
       console.log('🔓 Usuário não autenticado - redirecionando para login');
-      router.replace('/(auth)/login');
+      router.replace('/(auth)');
     }
   }, [user]);
 
@@ -25,7 +25,7 @@ export default function TabsLayout() {
           focus: () => console.log('🏠 Tela home em foco'),
         }}
       />
-      <Stack.Screen name="ranking" options={{ headerShown: false }} />
+      <Stack.Screen name="ranking" options={{ headerShown: true }} />
       <Stack.Screen name="monthly-ranking" options={{ headerShown: false }} />
     </Stack>
   );

@@ -12,7 +12,7 @@ export default function AuthLayout() {
     } else {
       // Garante que está na tela de login
       if (router.canGoBack()) {
-        router.replace('/login');
+        router.replace('/(auth)');
       }
     }
   }, [user]);

@@ -43,7 +43,6 @@ interface RankingItem {
   media_setor?: MediaSetor[];
 }
 
-// Mapeamento de ícones apenas para os setores específicos
 const setorIcons: Record<string, JSX.Element> = {
   'Sucesso ao cliente': <FontAwesome5 name="headset" size={14} color={COLORS.primary} />,
   'Suporte Nivel 2': <MaterialIcons name="support-agent" size={14} color={COLORS.primary} />,
@@ -52,11 +51,9 @@ const setorIcons: Record<string, JSX.Element> = {
   'Recursos Humanos': <Entypo name="users" size={14} color={COLORS.primary} />,
 };
 
-// Função para formatar o nome do setor e obter o ícone correspondente
 const formatSetorNameAndGetIcon = (setorName: string | undefined) => {
   if (!setorName) return { name: 'Setor Desconhecido', icon: <FontAwesome5 name="building" size={14} color={COLORS.primary} /> };
   
-  // Substitui "Avaliadores suporte Nivel 2" por "Suporte Nivel 2"
   const formattedName = setorName.replace('Avaliadores suporte Nível 2', 'Suporte Nivel 2');
   
   return {
@@ -83,12 +80,17 @@ const DailyRankingScreen = () => {
 
         if (!user?.access_token) throw new Error('Usuário não autenticado');
 
+        console.log('Iniciando busca de colaboradores e setores...');
         const [colaboradores, setores] = await Promise.all([
           getColaboradores(user.access_token),
           getSetores(user.access_token)
         ]);
 
+        console.log('Colaboradores encontrados:', colaboradores.length);
+        console.log('Setores encontrados:', setores.length);
+
         const filtrados = colaboradores.filter((colab: any) => colab.setor_colaborador === 22);
+        console.log('Colaboradores filtrados (setor 22):', filtrados.length);
 
         const colaboradoresMap = filtrados.reduce((acc, curr) => {
           acc[curr.id_colaborador] = curr.nome_colaborador;
@@ -104,6 +106,7 @@ const DailyRankingScreen = () => {
         setSetoresMap(setoresMap);
         await fetchRanking(selectedDate, filtrados, colaboradoresMap, setoresMap);
       } catch (err: any) {
+        console.error('Erro ao carregar dados:', err);
         setError(err.message || 'Erro ao carregar dados');
       } finally {
         setLoading(false);
@@ -123,12 +126,14 @@ const DailyRankingScreen = () => {
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
+      console.log('Nova data selecionada:', formatDate(selectedDate));
       setSelectedDate(selectedDate);
       handleSearch(selectedDate);
     }
   };
 
   const showDatepicker = () => {
+    console.log('Abrindo date picker...');
     setShowDatePicker(true);
   };
 
@@ -146,6 +151,11 @@ const DailyRankingScreen = () => {
     try {
       setLoading(true);
       const dateString = date.toISOString().split('T')[0];
+      
+      console.log('\n--- INICIANDO BUSCA DE RANKING ---');
+      console.log('Data pesquisada:', dateString);
+      console.log('Total de colaboradores:', colaboradores.length);
+
       const allRanking: RankingItem[] = [];
 
       for (const colaborador of colaboradores) {
@@ -153,8 +163,14 @@ const DailyRankingScreen = () => {
         if (!colaboradorId) continue;
 
         try {
+          console.log(`\nBuscando dados para colaborador ${colaboradorId}...`);
           const data = await getDailyRanking(dateString, colaboradorId, user.access_token);
           
+          console.log(`Dados retornados para ${colaborador.nome_colaborador}:`, {
+            media_total: data.media_total,
+            setores: data.media_setor?.length || 0
+          });
+
           const mediaSetorComNomes = data.media_setor?.map(setor => ({
             ...setor,
             nome_setor: setoresMap[setor.id_setor] || `Setor ${setor.id_setor}`
@@ -184,8 +200,16 @@ const DailyRankingScreen = () => {
         .sort((a, b) => parseFloat(b.media_total) - parseFloat(a.media_total))
         .map((item, index) => ({ ...item, posicao: index + 1 }));
 
+      console.log('\n--- RANKING FINAL ---');
+      console.log('Total de itens:', sorted.length);
+      console.log('Primeiros 3 colocados:', sorted.slice(0, 3).map(i => ({
+        nome: i.nome_colaborador,
+        media: i.media_total
+      })));
+      
       setRanking(sorted);
     } catch (err: any) {
+      console.error('Erro ao carregar ranking:', err);
       setError(err.message || 'Erro ao carregar ranking');
       setRanking([]);
     } finally {
@@ -194,6 +218,10 @@ const DailyRankingScreen = () => {
   };
 
   const handleSearch = (date: Date) => {
+    console.log('\n=== NOVA PESQUISA ===');
+    console.log('Data:', formatDate(date));
+    console.log('Total de colaboradores:', Object.keys(colaboradoresMap).length);
+    
     fetchRanking(
       date, 
       Object.entries(colaboradoresMap).map(([id_colaborador, nome_colaborador]) => ({
