@@ -142,3 +142,45 @@ export const getSetores = async (token: string): Promise<Setores[]> => {
     throw new Error(error.response?.data?.message || 'Erro ao carregar colaboradores');
   }
 };
+
+interface Avaliacoes{
+  id: string;
+  id_cliente: string;
+  cliente: string;
+  finalizacao: string;
+  mensagem: string;
+  checklist: string;
+  status: string;
+  avaliador: string;
+}
+
+export const getAvaliacoes = async (
+  token: string, 
+  query: string, // Agora explicitamente string
+  data_fechamento: string
+): Promise<Avaliacoes[]> => {
+  try {
+    const response = await api.post(
+      'IXCSoft/listOSFinTec',
+      {
+        query, // Já é string
+        data_fechamento
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.data.registros || !Array.isArray(response.data.registros)) {
+      throw new Error('Formato de dados inválido na resposta da API');
+    }
+
+    return response.data.registros;
+  } catch (error: any) {
+    console.error('Erro ao buscar Avaliações:', error);
+    throw new Error(error.response?.data?.message || 'Erro ao carregar Avaliações');
+  }
+}
+
