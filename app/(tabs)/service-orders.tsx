@@ -14,6 +14,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Avaliacao {
+  potencia: any;
   id: string;
   id_cliente: string;
   cliente: string;
@@ -51,23 +52,23 @@ const ServiceOrders = () => {
 
   const parseChecklist = (checklist: string) => {
     if (!checklist) return [];
-    
+
     const lines = checklist.split('\n').filter(line => line.trim() !== '');
     const result = [];
     let currentSection = '';
-    
+
     for (const line of lines) {
       if (!line.includes('Sim (') && !line.includes('Não (')) {
         currentSection = line.trim();
         continue;
       }
-      
+
       const questionMatch = line.match(/^(.*?)\?/);
       const question = questionMatch ? questionMatch[1] : line;
-      
+
       const hasYes = line.includes('Sim (X)');
       const hasNo = line.includes('Não (X)');
-      
+
       if (hasYes || hasNo) {
         result.push({
           section: currentSection,
@@ -76,7 +77,7 @@ const ServiceOrders = () => {
         });
       }
     }
-    
+
     return result;
   };
 
@@ -104,16 +105,16 @@ const ServiceOrders = () => {
       setLoading(true);
       setError('');
       setExpandedItems({});
-      
+
       const dateString = formatDateToAPI(selectedDate);
       const idIxcString = user?.id_ixc?.toString() || '';
-      
+
       const data = await getAvaliacoes(
-        user?.access_token || '', 
+        user?.access_token || '',
         idIxcString,
         dateString
       );
-      
+
       setAvaliacoes(data);
     } catch (err: any) {
       console.error('Erro ao buscar avaliações:', err);
@@ -122,6 +123,10 @@ const ServiceOrders = () => {
       setLoading(false);
     }
   };
+
+  console.log(avaliacoes);
+
+
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -142,6 +147,35 @@ const ServiceOrders = () => {
     return `${day}/${month}/${year}`;
   };
 
+  const getFibraColor = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return COLORS.gray;
+    if (value > -25) return COLORS.green;
+    if (value > -26) return COLORS.yellow;
+    return COLORS.red;
+  };
+
+  const getCCQColor = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return COLORS.gray;
+    if (value > 90) return COLORS.green;
+    if (value > 80) return COLORS.yellow;
+    return COLORS.red;
+  };
+
+  const getSinalColor = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return COLORS.gray;
+    if (value > -60) return COLORS.green;
+    if (value > -70) return COLORS.yellow;
+    return COLORS.red;
+  };
+
+  // Função para converter hex para rgba
+  const hexToRgba = (hex: string, alpha: number) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   const renderItem = ({ item }: { item: Avaliacao }) => {
     const isExpanded = expandedItems[item.id];
     const checklistItems = parseChecklist(item.checklist);
@@ -160,25 +194,100 @@ const ServiceOrders = () => {
           </View>
           <Text style={styles.cardTitle}>OS #{item.id}</Text>
         </View>
-        
+
         <Text style={styles.clientText}>
           Cliente #{item.id_cliente}: {item.cliente}
         </Text>
-        
-        <TouchableOpacity 
+
+        <View style={styles.potenciaContainer}>
+          {/* Seção FIBRA */}
+          {(item.potencia.fibra?.rx !== undefined || item.potencia.fibra?.tx !== undefined) && (
+            <View style={styles.potenciaSection}>
+              {(item.potencia.fibra?.rx || item.potencia.fibra?.tx) && (
+                <Text style={styles.potenciaTitle}>Fibra Óptica</Text>
+              )}
+              <View style={styles.potenciaRow}>
+                {item.potencia.fibra?.rx && (
+                  <View style={[
+                    styles.valueBox,
+                    {
+                      borderColor: getFibraColor(item.potencia.fibra.rx),
+                      backgroundColor: hexToRgba(getFibraColor(item.potencia.fibra.rx), 0.1)
+                    }
+                  ]}>
+
+                    <Text style={styles.valueLabel}>RX:</Text>
+                    <Text style={styles.valueText}>{item.potencia.fibra.rx}</Text>
+                  </View>
+                )}
+                {item.potencia.fibra?.tx && (
+                  <View style={[
+                    styles.valueBox,
+                    {
+                      borderColor: getFibraColor(item.potencia.fibra.tx),
+                      backgroundColor: hexToRgba(getFibraColor(item.potencia.fibra.tx), 0.1)
+                    }
+                  ]}>
+                    <Text style={styles.valueLabel}>TX:</Text>
+                    <Text style={styles.valueText}>{item.potencia.fibra.tx}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Seção RÁDIO */}
+          {(item.potencia.radio?.ccq  || item.potencia.radio?.sinal ) && (
+            <View style={styles.potenciaSection}>
+              {item.potencia.radio?.cqq || item.potencia.radio?.sinal && (
+                <Text style={styles.potenciaTitle}>Rádio</Text>
+              )}
+
+              <View style={styles.potenciaRow}>
+                {item.potencia.radio?.ccq && (
+                  <View style={[
+                    styles.valueBox,
+                    {
+                      borderColor: getCCQColor(item.potencia.radio.ccq),
+                      backgroundColor: hexToRgba(getCCQColor(item.potencia.radio.ccq), 0.1)
+                    }
+                  ]}>
+
+                    <Text style={styles.valueLabel}>CCQ:</Text>
+                    <Text style={styles.valueText}>{item.potencia.radio.ccq}</Text>
+                  </View>
+                )}
+                {item.potencia.radio?.sinal && (
+                  <View style={[
+                    styles.valueBox,
+                    {
+                      borderColor: getSinalColor(item.potencia.radio.sinal),
+                      backgroundColor: hexToRgba(getSinalColor(item.potencia.radio.sinal), 0.1)
+                    }
+                  ]}>
+                    <Text style={styles.valueLabel}>Sinal:</Text>
+                    <Text style={styles.valueText}>{item.potencia.radio.sinal}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity
           style={styles.detailsButton}
           onPress={() => toggleExpand(item.id)}
         >
           <Text style={styles.detailsButtonText}>
             {isExpanded ? 'Ocultar detalhes' : 'Ver detalhes'}
           </Text>
-          <MaterialIcons 
-            name={isExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} 
-            size={20} 
-            color={COLORS.primary} 
+          <MaterialIcons
+            name={isExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+            size={20}
+            color={COLORS.primary}
           />
         </TouchableOpacity>
-        
+
         {isExpanded && (
           <View style={styles.expandedContent}>
             {item.mensagem && (
@@ -187,11 +296,11 @@ const ServiceOrders = () => {
                 <Text style={styles.messageText}> {item.mensagem}</Text>
               </View>
             )}
-            
+
             <Text style={styles.technicianText}>
               <MaterialIcons name="person" size={14} color="#666" /> Avaliador: {item.avaliador}
             </Text>
-            
+
             {checklistItems.length > 0 && (
               <View style={styles.checklistContainer}>
                 <Text style={styles.checklistTitle}>Checklist da OS:</Text>
@@ -201,7 +310,7 @@ const ServiceOrders = () => {
                       <Text style={styles.sectionTitle}>{item.section}</Text>
                     )}
                     <View style={[
-                      styles.checklistItem, 
+                      styles.checklistItem,
                       item.answer === 'Não' && styles.checklistItemNegative
                     ]}>
                       <Text style={styles.checklistQuestion}>{item.question}?</Text>
@@ -236,8 +345,8 @@ const ServiceOrders = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Minhas Ordens de Serviço</Text>
-      
-      <TouchableOpacity 
+
+      <TouchableOpacity
         style={styles.dateButton}
         onPress={() => setShowDatePicker(true)}
       >
@@ -246,7 +355,7 @@ const ServiceOrders = () => {
           {formatDateToDisplay(selectedDate)}
         </Text>
       </TouchableOpacity>
-      
+
       {showDatePicker && (
         <DateTimePicker
           value={selectedDate}
@@ -256,7 +365,7 @@ const ServiceOrders = () => {
           maximumDate={new Date()}
         />
       )}
-      
+
       {error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : avaliacoes.length === 0 ? (
@@ -475,6 +584,41 @@ const styles = StyleSheet.create({
   answerNegative: {
     backgroundColor: '#ffebee',
     color: '#c62828',
+  },
+  potenciaContainer: {
+    marginVertical: 8,
+  },
+  potenciaSection: {
+    marginBottom: 12,
+  },
+  potenciaTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 6,
+  },
+  potenciaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  valueBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    minWidth: 80,
+  },
+  valueLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginRight: 4,
+    color: '#333',
+  },
+  valueText: {
+    fontSize: 13,
+    fontWeight: 'bold',
   },
 });
 

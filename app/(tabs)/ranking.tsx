@@ -9,38 +9,32 @@ import {
   Platform
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { getDailyRanking, getColaboradores, getSetores } from '../../services/api';
-import { 
-  MaterialIcons, 
-  FontAwesome5, 
-  FontAwesome, 
-  Entypo 
+import { getRankingDiario} from '../../services/api';
+import {
+  MaterialIcons,
+  FontAwesome5,
+  FontAwesome,
+  Entypo
 } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS } from '@/constants/Colors';
 import { MotiView, AnimatePresence } from 'moti';
 
-interface MediaSetor {
+interface SetorData {
   id_setor: number;
-  nome_setor?: string;
+  setor: string;
   total_registros: number;
   media_diaria: string;
   soma_pontuacao: string;
 }
 
 interface RankingItem {
-  id: number;
-  colaborador_id: number;
-  data: string;
+  erro: any;
+  colaborador: string;
+  colocacao: number;
+  total_registros: number;
   media_total: string;
-  media_sucesso?: string;
-  media_estoque?: string;
-  media_n2?: string;
-  media_rh?: string;
-  media_n3?: string;
-  nome_colaborador?: string;
-  posicao?: number;
-  media_setor?: MediaSetor[];
+  media_setor: SetorData[];
 }
 
 const setorIcons: Record<string, JSX.Element> = {
@@ -53,9 +47,9 @@ const setorIcons: Record<string, JSX.Element> = {
 
 const formatSetorNameAndGetIcon = (setorName: string | undefined) => {
   if (!setorName) return { name: 'Setor Desconhecido', icon: <FontAwesome5 name="building" size={14} color={COLORS.primary} /> };
-  
+
   const formattedName = setorName.replace('Avaliadores suporte Nível 2', 'Suporte Nivel 2');
-  
+
   return {
     name: formattedName,
     icon: setorIcons[formattedName] || <FontAwesome5 name="building" size={14} color={COLORS.primary} />
@@ -68,8 +62,6 @@ const DailyRankingScreen = () => {
   const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [colaboradoresMap, setColaboradoresMap] = useState<Record<number, string>>({});
-  const [setoresMap, setSetoresMap] = useState<Record<number, string>>({});
   const { user } = useAuth();
 
   useEffect(() => {
@@ -80,31 +72,7 @@ const DailyRankingScreen = () => {
 
         if (!user?.access_token) throw new Error('Usuário não autenticado');
 
-        console.log('Iniciando busca de colaboradores e setores...');
-        const [colaboradores, setores] = await Promise.all([
-          getColaboradores(user.access_token),
-          getSetores(user.access_token)
-        ]);
-
-        console.log('Colaboradores encontrados:', colaboradores.length);
-        console.log('Setores encontrados:', setores.length);
-
-        const filtrados = colaboradores.filter((colab: any) => colab.setor_colaborador === 22);
-        console.log('Colaboradores filtrados (setor 22):', filtrados.length);
-
-        const colaboradoresMap = filtrados.reduce((acc, curr) => {
-          acc[curr.id_colaborador] = curr.nome_colaborador;
-          return acc;
-        }, {} as Record<number, string>);
-
-        const setoresMap = setores.reduce((acc, curr) => {
-          acc[curr.id_setor] = curr.nome_setor;
-          return acc;
-        }, {} as Record<number, string>);
-
-        setColaboradoresMap(colaboradoresMap);
-        setSetoresMap(setoresMap);
-        await fetchRanking(selectedDate, filtrados, colaboradoresMap, setoresMap);
+        await fetchRanking(selectedDate);
       } catch (err: any) {
         console.error('Erro ao carregar dados:', err);
         setError(err.message || 'Erro ao carregar dados');
@@ -115,6 +83,7 @@ const DailyRankingScreen = () => {
 
     fetchData();
   }, []);
+
 
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, '0');
@@ -137,12 +106,7 @@ const DailyRankingScreen = () => {
     setShowDatePicker(true);
   };
 
-  const fetchRanking = async (
-    date: Date,
-    colaboradores: { id_colaborador: number; nome_colaborador: string }[],
-    colaboradoresMap: Record<number, string>,
-    setoresMap: Record<number, string>
-  ) => {
+  const fetchRanking = async (date: Date) => {
     if (!user) {
       setError('Usuário não autenticado');
       return;
@@ -154,63 +118,13 @@ const DailyRankingScreen = () => {
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
-      
+
       console.log('\n--- INICIANDO BUSCA DE RANKING ---');
       console.log('Data pesquisada:', dateString);
-      console.log('Total de colaboradores:', colaboradores.length);
 
-      const allRanking: RankingItem[] = [];
+      const data = await getRankingDiario(user.access_token, dateString);
+      setRanking(data);
 
-      for (const colaborador of colaboradores) {
-        const colaboradorId = colaborador.id_colaborador;
-        if (!colaboradorId) continue;
-
-        try {
-          console.log(`\nBuscando dados para colaborador ${colaboradorId}...`);
-          const data = await getDailyRanking(dateString, colaboradorId, user.access_token);
-          
-          console.log(`Dados retornados para ${colaborador.nome_colaborador}:`, {
-            media_total: data.media_total,
-            setores: data.media_setor?.length || 0
-          });
-
-          const mediaSetorComNomes = data.media_setor?.map(setor => ({
-            ...setor,
-            nome_setor: setoresMap[setor.id_setor] || `Setor ${setor.id_setor}`
-          })) || [];
-
-          const rankingItem: RankingItem = {
-            id: colaboradorId,
-            colaborador_id: colaboradorId,
-            nome_colaborador: colaboradoresMap[colaboradorId] || 'Desconhecido',
-            data: dateString,
-            media_total: data.media_total || '0.00',
-            media_sucesso: data.media_sucesso || '0.00',
-            media_estoque: data.media_estoque || '0.00',
-            media_n2: data.media_n2 || '0.00',
-            media_rh: data.media_rh || '0.00',
-            media_n3: data.media_n3 || '0.00',
-            media_setor: mediaSetorComNomes
-          };
-
-          allRanking.push(rankingItem);
-        } catch (error) {
-          console.error(`Erro ao buscar ranking do colaborador ${colaboradorId}:`, error);
-        }
-      }
-
-      const sorted = allRanking
-        .sort((a, b) => parseFloat(b.media_total) - parseFloat(a.media_total))
-        .map((item, index) => ({ ...item, posicao: index + 1 }));
-
-      console.log('\n--- RANKING FINAL ---');
-      console.log('Total de itens:', sorted.length);
-      console.log('Primeiros 3 colocados:', sorted.slice(0, 3).map(i => ({
-        nome: i.nome_colaborador,
-        media: i.media_total
-      })));
-      
-      setRanking(sorted);
     } catch (err: any) {
       console.error('Erro ao carregar ranking:', err);
       setError(err.message || 'Erro ao carregar ranking');
@@ -223,17 +137,8 @@ const DailyRankingScreen = () => {
   const handleSearch = (date: Date) => {
     console.log('\n=== NOVA PESQUISA ===');
     console.log('Data:', formatDate(date));
-    console.log('Total de colaboradores:', Object.keys(colaboradoresMap).length);
-    
-    fetchRanking(
-      date, 
-      Object.entries(colaboradoresMap).map(([id_colaborador, nome_colaborador]) => ({
-        id_colaborador: Number(id_colaborador),
-        nome_colaborador
-      })), 
-      colaboradoresMap,
-      setoresMap
-    );
+
+    fetchRanking(date);
   };
 
   if (loading) {
@@ -249,8 +154,8 @@ const DailyRankingScreen = () => {
       <Text style={styles.title}>Ranking Diário</Text>
 
       <View style={styles.searchContainer}>
-        <TouchableOpacity 
-          style={styles.dateButton} 
+        <TouchableOpacity
+          style={styles.dateButton}
           onPress={showDatepicker}
           activeOpacity={0.7}
         >
@@ -258,7 +163,7 @@ const DailyRankingScreen = () => {
             {formatDate(selectedDate)}
           </Text>
         </TouchableOpacity>
-        
+
         {showDatePicker && (
           <DateTimePicker
             value={selectedDate}
@@ -277,13 +182,13 @@ const DailyRankingScreen = () => {
           <AnimatePresence>
             {ranking.map((item, index) => {
               const medalColor =
-                item.posicao === 1
+                item.colocacao === 1
                   ? '#FFD700'
-                  : item.posicao === 2
-                  ? '#C0C0C0'
-                  : item.posicao === 3
-                  ? '#CD7F32'
-                  : COLORS.primary;
+                  : item.colocacao === 2
+                    ? '#C0C0C0'
+                    : item.colocacao === 3
+                      ? '#CD7F32'
+                      : COLORS.primary;
 
               return (
                 <MotiView
@@ -294,15 +199,15 @@ const DailyRankingScreen = () => {
                     duration: 500,
                     delay: index * 100
                   }}
-                  key={item.colaborador_id}
+                  key={item.colaborador}
                   style={styles.rankingItem}
                 >
                   <View style={[styles.positionContainer, { backgroundColor: medalColor }]}>
-                    <Text style={styles.positionText}>{item.posicao}º</Text>
+                    <Text style={styles.positionText}>{item.colocacao}º</Text>
                   </View>
 
                   <View style={styles.itemContent}>
-                    <Text style={styles.colaboratorName}>{item.nome_colaborador}</Text>
+                    <Text style={styles.colaboratorName}>{item.colaborador}</Text>
 
                     <View style={styles.ratingContainer}>
                       <MaterialIcons name="star" size={16} color="#FFD700" />
@@ -310,7 +215,7 @@ const DailyRankingScreen = () => {
                     </View>
 
                     {item.media_setor?.map((setor, idx) => {
-                      const { name: setorName, icon } = formatSetorNameAndGetIcon(setor.nome_setor);
+                      const { name: setorName, icon } = formatSetorNameAndGetIcon(setor.setor);
                       return (
                         <View key={idx} style={styles.sectorItem}>
                           {icon}
@@ -320,8 +225,6 @@ const DailyRankingScreen = () => {
                         </View>
                       );
                     })}
-
-                    <Text style={styles.dateText}>{item.data}</Text>
                   </View>
                 </MotiView>
               );

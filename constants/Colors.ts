@@ -27,6 +27,7 @@ export const COLORS = {
   text: '#333333',
   gray: '#6b7280',
   border: '#e5e7eb',
-  red: '#ef4444'
-  // ... outras cores
+  red: '#ef4444',
+  green: '#4CAF50',
+  yellow: '#FFC107'
 };

@@ -1,39 +1,86 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { Documento } from '../services/documentos';
+
+interface Tutorial {
+  id: number;
+  title: string;
+  descricao: string;
+  url_view: string;
+  url_download: string;
+  criado_por: string;
+  data_criacao: string;
+  name_icon: string;
+}
 
 type Props = {
-  data: Documento;
+  data: Tutorial;
 };
 
 const TutorialCard: React.FC<Props> = ({ data }) => {
-  const getIconName = () => {
-    switch (data.tipo) {
-      case 'pdf': return 'picture-as-pdf';
-      case 'word': return 'description';
-      case 'imagem': return 'image';
+  const getIcon = () => {
+    switch (data.name_icon) {
+      case 'picture_as_pdf': return 'picture-as-pdf';
+      case 'description': return 'description';
+      case 'image': return 'image';
       default: return 'insert-drive-file';
     }
   };
 
   const handleVisualizar = () => {
-    Linking.openURL(data.url);
+    Linking.openURL(data.url_view).catch(err => 
+      console.error('Erro ao abrir URL:', err)
+    );
+  };
+
+  const handleDownload = () => {
+    Linking.openURL(data.url_download).catch(err => 
+      console.error('Erro ao iniciar download:', err)
+    );
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('pt-BR');
+    } catch {
+      return dateString;
+    }
   };
 
   return (
     <View style={styles.card}>
-      <MaterialIcons name={getIconName()} size={40} color="#444" style={styles.icon} />
+      <MaterialIcons 
+        name={getIcon()} 
+        size={40} 
+        color="#E74C3C" 
+        style={styles.icon} 
+      />
 
       <View style={styles.info}>
-        <Text style={styles.title}>{data.titulo}</Text>
+        <Text style={styles.title}>{data.title}</Text>
         <Text style={styles.description}>{data.descricao}</Text>
+        
+        <View style={styles.metaContainer}>
+          <Text style={styles.metaText}>Criado por: {data.criado_por}</Text>
+          <Text style={styles.metaText}>Data: {formatDate(data.data_criacao)}</Text>
+        </View>
+
         <View style={styles.actions}>
-          <TouchableOpacity onPress={handleVisualizar}>
-            <Text style={styles.button}>Visualizar</Text>
+          <TouchableOpacity 
+            style={styles.buttonContainer}
+            onPress={handleVisualizar}
+          >
+            <MaterialIcons name="visibility" size={18} color="#FFF" />
+            <Text style={styles.buttonText}>Visualizar</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleVisualizar}>
-            <Text style={styles.button}>Download</Text>
+          
+          <TouchableOpacity 
+            style={[styles.buttonContainer, styles.downloadButton]}
+            onPress={handleDownload}
+          >
+            <MaterialIcons name="file-download" size={18} color="#FFF" />
+            <Text style={styles.buttonText}>Download</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -41,41 +88,66 @@ const TutorialCard: React.FC<Props> = ({ data }) => {
   );
 };
 
-export default TutorialCard;
-
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 12,
+    backgroundColor: '#FFF',
+    padding: 16,
     borderRadius: 10,
-    marginVertical: 6,
-    elevation: 2,
-    alignItems: 'flex-start',
+    marginVertical: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   icon: {
-    marginRight: 12,
-    marginTop: 4,
+    marginRight: 16,
   },
   info: {
     flex: 1,
   },
   title: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2C3E50',
+    marginBottom: 6,
   },
   description: {
-    color: '#555',
-    marginTop: 4,
+    color: '#7F8C8D',
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  metaContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#95A5A6',
   },
   actions: {
     flexDirection: 'row',
-    marginTop: 8,
-    gap: 10,
+    gap: 12,
   },
-  button: {
-    color: '#007bff',
-    fontWeight: 'bold',
-    marginRight: 16,
+  buttonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3498DB',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    gap: 6,
+  },
+  downloadButton: {
+    backgroundColor: '#2ECC71',
+  },
+  buttonText: {
+    color: '#FFF',
+    fontWeight: '500',
+    fontSize: 14,
   },
 });
+
+export default TutorialCard;
